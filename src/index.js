@@ -1,41 +1,31 @@
-import axios from "axios";
-import cheerio from "cheerio";
+import express from "express";
+import TranscriptAPI from "./index.js"; // Import the TranscriptAPI class
 
-class TranscriptAPI {
-  static async getTranscript(id, config = {}) {
-    const url = new URL('https://youtubetranscript.com');
-    url.searchParams.set('server_vid2', id);
-    
-    const
-      response = await axios.get(url, config),
-      $ = cheerio.load(response.data, undefined, false),
-      err = $('error');
-  
-    if (err.length) throw new Error(err.text());
-    return $('transcript text').map((i, elem) => {
-      const $a = $(elem);
-      return {
-        text: $a.text(),
-        start: Number($a.attr('start')),
-        duration: Number($a.attr('dur'))
-      };
-    }).toArray();
+const app = express();
+
+// Use the PORT from environment variables or default to 3000 (for local development)
+const PORT = process.env.PORT || 3000;
+
+// Define the /get_transcript endpoint
+app.get('/get_transcript', async (req, res) => {
+  const videoId = req.query.video_id;
+
+  // Validate if video_id is provided
+  if (!videoId) {
+    return res.status(400).send({ error: "Missing video_id parameter" });
   }
 
-  static async validateID(id, config = {}) {
-    const url = new URL('https://video.google.com/timedtext');
-    url.searchParams.set('type', 'track');
-    url.searchParams.set('v', id);
-    url.searchParams.set('id', 0);
-    url.searchParams.set('lang', 'en');
-    
-    try {
-      await axios.get(url, config);
-      return !0;
-    } catch (_) {
-      return !1;
-    }
+  try {
+    // Call the getTranscript method from TranscriptAPI
+    const transcript = await TranscriptAPI.getTranscript(videoId);
+    res.json(transcript);
+  } catch (error) {
+    // Handle errors gracefully
+    res.status(500).send({ error: error.message });
   }
-}
+});
 
-export { TranscriptAPI as default };
+// Start the server and bind to the correct port
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
